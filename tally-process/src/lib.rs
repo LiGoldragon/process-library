@@ -41,7 +41,7 @@ impl Processable for SumProcess {
     type Outcome = Summing;
 
     /// Summing nothing is adding zero: the caller is answered with the total as it stands.
-    fn begin<N: Giving<Gift>>(&mut self, mut giving: N) -> Option<Summing> {
+    fn begin<N: Giving<Self>>(&mut self, mut giving: N) -> Option<Summing> {
         if self.integer_vector.is_empty() {
             self.integer_vector.push(0);
         }
@@ -52,7 +52,7 @@ impl Processable for SumProcess {
     }
 
     /// The addends left to come back are the positions: one is let go for each end.
-    fn take<N: Giving<Gift>>(&mut self, taken: Adding, mut giving: N) -> Option<Summing> {
+    fn take<N: Giving<Self>>(&mut self, taken: Adding, mut giving: N) -> Option<Summing> {
         match taken {
             Adding::Added(total) => {
                 self.integer_vector.pop();
@@ -75,12 +75,12 @@ impl Processable for AddendProcess {
     type Gift = Gift;
     type Outcome = Adding;
 
-    fn begin<N: Giving<Gift>>(&mut self, mut giving: N) -> Option<Adding> {
+    fn begin<N: Giving<Self>>(&mut self, mut giving: N) -> Option<Adding> {
         giving.give(Add(self.addend.0));
         None
     }
 
-    fn take<N: Giving<Gift>>(&mut self, taken: AddendTaken, _giving: N) -> Option<Adding> {
+    fn take<N: Giving<Self>>(&mut self, taken: AddendTaken, _giving: N) -> Option<Adding> {
         Some(match taken {
             Ok(Addition::Added(total)) => Adding::Added(total),
             Ok(Addition::Overflowed) => Adding::Refused,

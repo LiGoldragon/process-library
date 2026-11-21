@@ -76,22 +76,63 @@ pub enum Trace<P, G, T, O> {
 
 /// A process: it begins once, takes each thing that comes for it after, and
 /// yields its outcome when it ends. None is rest.
-pub trait Processable {
+pub trait Processable: Sized {
     type Taken;
     type Gift;
     type Outcome;
-    fn begin<N: Giving<Self::Gift>>(&mut self, giving: N) -> Option<Self::Outcome>;
-    fn take<N: Giving<Self::Gift>>(&mut self, taken: Self::Taken, giving: N) -> Option<Self::Outcome>;
+    fn begin<N: Giving<Self>>(&mut self, giving: N) -> Option<Self::Outcome>;
+    fn take<N: Giving<Self>>(&mut self, taken: Self::Taken, giving: N) -> Option<Self::Outcome>;
 }
 
 /// What a process is handed to give with. To give is to move.
-pub trait Giving<Gift> {
-    fn give<N: Givable + Into<Gift>>(&mut self, gift: N);
+pub trait Giving<A: Processable> {
+    fn give<N: Givable<A> + Into<A::Gift>>(&mut self, gift: N);
 }
 
-/// A thing that may leave a process; Returned is what comes back for it.
-pub trait Givable {
+/// A thing declared to leave a particular process; Returned is what comes back for it.
+pub trait Givable<A: Processable> {
     type Returned;
+}
+
+/// The dispatch boundary of the aggregate Process the manager holds.
+/// Its implementation supplies each concrete Processable body with its typed giver.
+pub trait Dispatchable: Sized {
+    type Taken;
+    type Gift;
+    type Outcome;
+
+    fn dispatch_begin(&mut self, receive: impl FnMut(Self::Gift)) -> Option<Self::Outcome>;
+    fn dispatch_take(
+        &mut self,
+        taken: Self::Taken,
+        receive: impl FnMut(Self::Gift),
+    ) -> Option<Self::Outcome>;
+}
+
+/// Turns the manager's gift receiver into the giving capability of one concrete process.
+pub struct Giver<A, Receive> {
+    receive: Receive,
+    process: PhantomData<fn() -> A>,
+}
+
+impl<A, Receive> From<Receive> for Giver<A, Receive>
+where
+    A: Processable,
+    Receive: FnMut(A::Gift),
+{
+    fn from(receive: Receive) -> Self {
+        Self { receive, process: PhantomData }
+    }
+}
+
+impl<A, Receive> Giving<A> for Giver<A, Receive>
+where
+    A: Processable,
+    Receive: FnMut(A::Gift),
+{
+    fn give<N: Givable<A> + Into<A::Gift>>(&mut self, gift: N) {
+        (self.receive)(gift.into());
+    }
 }
 
 /// The outcome of a process ended with its owner.
@@ -167,21 +208,25 @@ impl Roots {
 }
 
 /// The trace of one Nexus's processes.
-pub type Traced<P> = Trace<P, <P as Processable>::Gift, <P as Processable>::Taken, <P as Processable>::Outcome>;
+pub type Traced<P> = Trace<P, <P as Dispatchable>::Gift, <P as Dispatchable>::Taken, <P as Dispatchable>::Outcome>;
 
 /// What the queue yields: a process born, its identity already drawn by the one
 /// that bears it; a thing for a living one; or the end of one, which is taken
 /// out of the table at that moment.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Arrival<P: Processable> {
+pub enum Arrival<P: Dispatchable> {
     Born(Living<P>),
     Given(Given<P::Taken>),
     Ended(Ended<P::Outcome>),
 }
 
 /// Where the trace goes: every gift is carried from here, every end announced.
-pub trait Tracing<P: Processable> {
+pub trait Tracing<P: Dispatchable> {
     fn trace(&mut self, trace: Traced<P>);
+
+    fn trace_gift(&mut self, identity: &Identity, gift: P::Gift) {
+        self.trace(Trace::Gave(Gave { identity: identity.clone(), gift }));
+    }
 }
 
 pub struct ProcessManager<P> {
@@ -194,22 +239,9 @@ impl<P> Default for ProcessManager<P> {
     }
 }
 
-/// What a body is handed: the world, bound to the identity of the process.
-struct Giver<'a, W, P> {
-    identity: &'a Identity,
-    world: &'a mut W,
-    process: PhantomData<fn() -> P>,
-}
-
-impl<P: Processable, W: Tracing<P>> Giving<P::Gift> for Giver<'_, W, P> {
-    fn give<N: Givable + Into<P::Gift>>(&mut self, gift: N) {
-        self.world.trace(Trace::Gave(Gave { identity: self.identity.clone(), gift: gift.into() }));
-    }
-}
-
 impl<P> ProcessManager<P>
 where
-    P: Processable + Clone,
+    P: Dispatchable + Clone,
     P::Taken: Clone,
     P::Outcome: Unwindable,
 {
@@ -245,7 +277,8 @@ where
             return;
         }
         world.trace(Trace::Born(living.clone()));
-        let outcome = living.process.begin(Giver { identity: &living.identity, world: &mut *world, process: PhantomData });
+        let identity = &living.identity;
+        let outcome = living.process.dispatch_begin(|gift| world.trace_gift(identity, gift));
         let identity = living.identity.clone();
         self.table.push(living);
         if let Some(outcome) = outcome {
@@ -259,8 +292,9 @@ where
             return;
         };
         world.trace(Trace::Took(given.clone()));
-        let giver = Giver { identity: &living.identity, world: &mut *world, process: PhantomData };
-        if let Some(outcome) = living.process.take(given.taken, giver) {
+        let identity = &living.identity;
+        let outcome = living.process.dispatch_take(given.taken, |gift| world.trace_gift(identity, gift));
+        if let Some(outcome) = outcome {
             self.end(given.identity, outcome, world);
         }
     }

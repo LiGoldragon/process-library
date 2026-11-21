@@ -21,14 +21,14 @@ impl Ownable for Rest {
     }
 }
 
-impl Processable for Rest {
+impl Dispatchable for Rest {
     type Taken = Nothing;
     type Gift = Nothing;
     type Outcome = Nothing;
-    fn begin<N: Giving<Nothing>>(&mut self, _giving: N) -> Option<Nothing> {
+    fn dispatch_begin(&mut self, _receive: impl FnMut(Nothing)) -> Option<Nothing> {
         None
     }
-    fn take<N: Giving<Nothing>>(&mut self, _taken: Nothing, _giving: N) -> Option<Nothing> {
+    fn dispatch_take(&mut self, _taken: Nothing, _receive: impl FnMut(Nothing)) -> Option<Nothing> {
         None
     }
 }

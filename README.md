@@ -19,9 +19,18 @@ process = { package = "process-library", git = "https://github.com/LiGoldragon/p
 The names a Nexus's generated processes module writes as `process::…`, which
 every Nexus shares and a process names, so they live here, in a crate with no
 operating system under it, and not in a Nexus: the traits `Processable`, `Giving`,
-`Givable`, `Unwindable`, `Ownable` (with `Owner`), and the types `Caller`
+`Givable`, `Dispatchable`, `Unwindable`, `Ownable` (with `Owner` and the typed
+`Giver`), and the types `Caller`
 (`ProcessId`, `UserId`), `Answer`, `Unremembered` and `Unobserved`. A Nexus's
 processes crate depends on this library under the name `process`.
+
+Each concrete body implements `Processable` and takes `Giving<Self>`. The
+generated Process root grants `Givable<ThatProcess>` for each listed gift.
+The manager gives the generated aggregate an identity-bound receiver for the
+Nexus's shared `Gift`; its dispatch branches wrap the receiver in a concrete
+`Giver`. Upgrade from 0.2.0 by repinning the library and ethos-zero together,
+regenerating the Process module, and changing the handwritten body bounds to
+`Giving<Self>`.
 
 What returns to a process for a thing it gave: nothing for an output; `Answer`
 for a record kept; `Result<its answer, Unremembered>` for a change;
@@ -42,7 +51,8 @@ connection and nothing else.
 
 The ethos in `ethos/`: a Signal, a Memory, whose one change, an addition, is
 answered by what it came to, and a Process root. It is also the proof of concept
-of ethos-zero 31.1.0, which reads the three together: `tally-process/src/generated/`
+of ethos-zero 32.0.0, pinned in `flake.lock`, which reads the three together:
+`tally-process/src/generated/`
 is its output for all of them, every path core or alloc, and `tally-process`
 builds with no_std unless the `datom` feature asks for the text side. The
 Process root's module holds each process's positions (`SumProcess`), what it
@@ -76,6 +86,11 @@ ends, the second sum lives to its outcome and gives `Summed.15` to a connection
 that is shut, where it is let go; the first sum answers `Summed.6`.
 
 ## Building
+
+The flake gate regenerates Tally and compares the committed modules. It also
+compiles the same `give(Add(1))` call with an Addend giver and a Sum giver: only
+Addend may give the Memory change, and the Sum case must fail its `Givable`
+bound.
 
 ```sh
 nix run github:Mic92/nix-fast-build -- --remote <builder> --no-nom --no-download \
