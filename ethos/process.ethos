@@ -1,0 +1,9 @@
+Process
+[ tally:signal:[ Sum Addend Summed Overflowed ]
+  tally:[ Add Addition ] ]
+[ Sum.{ []
+        [ Addend Summed Overflowed ] }
+  Addend.{ []
+           [ Add ]
+           Addition } ]
+[]

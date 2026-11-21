@@ -1,0 +1,16 @@
+[package]
+name = "tally-nexus"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+publish = false
+description = "The Tally Nexus: its processes run by the process manager on one queue, with a memory that makes one change at a time; every birth, gift, taking and end written out as datom."
+
+[dependencies]
+process = { package = "process-library", path = "..", features = ["datom"] }
+tally-process = { path = "../tally-process", features = ["datom"] }
+datom-codec = { workspace = true }
+protos = { workspace = true }
+
+[lints.rust]
+unsafe_code = "forbid"

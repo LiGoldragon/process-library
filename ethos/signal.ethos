@@ -1,0 +1,7 @@
+Signal
+[]
+[ Sum.Vector<Addend> ]
+[ Summed.Total
+  Overflowed ]
+[ Addend.Integer
+  Total.Integer ]

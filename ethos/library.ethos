@@ -1,0 +1,7 @@
+Library
+[ tally:signal:[ Total ] ]
+[ Add.Integer
+  Addition.[ Added.Total
+             Overflowed ] ]
+[]
+[]

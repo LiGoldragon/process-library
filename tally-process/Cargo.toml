@@ -1,0 +1,19 @@
+[package]
+name = "tally-process"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+publish = false
+description = "The processes of the Tally Nexus, the proof of concept of the process library: built with no operating system under it."
+
+[features]
+default = []
+datom = ["dep:datom-codec", "process/datom"]
+
+[dependencies]
+process = { package = "process-library", path = ".." }
+rkyv = { workspace = true }
+datom-codec = { workspace = true, optional = true }
+
+[lints.rust]
+unsafe_code = "forbid"

@@ -1,0 +1,27 @@
+[package]
+name = "process-library"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+publish = false
+description = "The process library: a process is an object at rest in the manager's table, given one thing at a time, and it gives."
+
+[features]
+default = []
+datom = ["dep:datom-codec"]
+
+[dependencies]
+rkyv = { workspace = true }
+datom-codec = { workspace = true, optional = true }
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[workspace]
+resolver = "3"
+members = [".", "tally-process", "tally-nexus"]
+
+[workspace.dependencies]
+rkyv = { version = "0.8", default-features = false, features = ["alloc", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
+datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "09a0526", features = ["rkyv"] }
+protos = { git = "https://github.com/LiGoldragon/protos", rev = "c93b598", features = ["rkyv"] }

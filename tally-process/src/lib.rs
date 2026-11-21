@@ -1,0 +1,68 @@
+//! The processes of the Tally Nexus: a sum, born of a call, and each of its
+//! addends, born of the sum. Built with no operating system under it.
+//!
+//! A Sum gives one Addend process for each number it was called with; each
+//! Addend gives one Add to the memory and ends with the Addition it takes back;
+//! the Sum takes each Addend's end, and when the last has come it answers the
+//! caller with the total. An Addend that overflows ends the Sum at once, and
+//! the Addends still living are unwound with it.
+
+// The text side, where datom is spoken, is built with std; the Nexus's build is not.
+#![cfg_attr(not(feature = "datom"), no_std)]
+extern crate alloc;
+
+mod generated;
+
+pub use generated::*;
+
+use process::{Giving, Processable};
+
+impl Processable for SumProcess {
+    type Taken = SumTaken;
+    type Gift = Gift;
+    type Outcome = ();
+
+    /// Summing nothing is adding zero: the caller is answered with the total as it stands.
+    fn begin<N: Giving<Gift>>(&mut self, mut manager: N) -> Option<()> {
+        if self.addend_vector.is_empty() {
+            self.addend_vector.push(Addend(0));
+        }
+        for addend in &self.addend_vector {
+            manager.give(addend.clone());
+        }
+        None
+    }
+
+    /// The addends left to come back are the positions: one is let go for each Addition.
+    fn take<N: Giving<Gift>>(&mut self, taken: SumTaken, mut manager: N) -> Option<()> {
+        match taken {
+            SumTaken::Addition(Addition::Added(total)) => {
+                self.addend_vector.pop();
+                if self.addend_vector.is_empty() {
+                    manager.give(Summed(total));
+                    return Some(());
+                }
+                None
+            }
+            SumTaken::Addition(Addition::Overflowed) => {
+                manager.give(Overflowed);
+                Some(())
+            }
+        }
+    }
+}
+
+impl Processable for AddendProcess {
+    type Taken = AddendTaken;
+    type Gift = Gift;
+    type Outcome = Addition;
+
+    fn begin<N: Giving<Gift>>(&mut self, mut manager: N) -> Option<Addition> {
+        manager.give(Add(self.addend.0));
+        None
+    }
+
+    fn take<N: Giving<Gift>>(&mut self, AddendTaken::Addition(addition): AddendTaken, _manager: N) -> Option<Addition> {
+        Some(addition)
+    }
+}
