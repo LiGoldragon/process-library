@@ -539,7 +539,7 @@ rec {
       };
       "process-library" = rec {
         crateName = "process-library";
-        version = "0.1.0";
+        version = "0.2.0";
         edition = "2024";
         src = lib.cleanSourceWith { filter = sourceFilter;  src = ./.; };
         libName = "process_library";
@@ -942,7 +942,7 @@ rec {
       };
       "tally-nexus" = rec {
         crateName = "tally-nexus";
-        version = "0.1.0";
+        version = "0.2.0";
         edition = "2024";
         crateBin = [
           {
@@ -980,7 +980,7 @@ rec {
       };
       "tally-process" = rec {
         crateName = "tally-process";
-        version = "0.1.0";
+        version = "0.2.0";
         edition = "2024";
         src = lib.cleanSourceWith { filter = sourceFilter;  src = ./tally-process; };
         libName = "tally_process";

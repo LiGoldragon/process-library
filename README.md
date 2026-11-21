@@ -8,49 +8,72 @@ asks for the text side.
 
 Lifted from `~/Code/claude-harness-nexus/process` at f0b425a, with two
 additions: `Identity::owned`, the identity a process bears a process under,
-and `Identity::owner`, read back from it.
+and `Identity::owner`, read back from it; and, from 0.2.0, the standard types.
 
 ```toml
 process = { package = "process-library", git = "https://github.com/LiGoldragon/process-library", rev = "…" }
 ```
 
+## The standard types
+
+The names a Nexus's generated processes module writes as `process::…`, which
+every Nexus shares and a process names, so they live here, in a crate with no
+operating system under it, and not in a Nexus: the traits `Processable`, `Giving`,
+`Givable`, `Unwindable`, `Ownable` (with `Owner`), and the types `Caller`
+(`ProcessId`, `UserId`), `Answer`, `Unremembered` and `Unobserved`. A Nexus's
+processes crate depends on this library under the name `process`.
+
+What returns to a process for a thing it gave: nothing for an output; `Answer`
+for a record kept; `Result<its answer, Unremembered>` for a change;
+`Result<its outcome, Unobserved>` for an emission; and for a process it gave, its
+outcome at its end.
+
+## What a close ends
+
+A close after the answer ends nothing. A call's process lives until it yields its
+outcome; what it gives its caller after the connection has closed is let go. A
+process that declares no outcome, a subscription, ends when its connection
+closes: that is its one end. The manager decides none of it: it is the signal
+process's, the world the manager is handed, and the Tally Nexus's world shows it,
+where a Sum declares its outcome and so a close of its connection shuts the
+connection and nothing else.
+
 ## The Tally Nexus, its proof of concept
 
-The ethos in `ethos/`: a Signal, a Memory, the Library holding the change
-and its answer until the Memory page places them, and a Process root. It is
-also the proof of concept of ethos-zero 31 (branch process-root, 48f155d),
-which checks all four: `tally-process/src/generated/` is its output for the
-Signal, the Memory and the Library, every path core or alloc, and
-`tally-process` builds with no_std unless the `datom` feature asks for the
-text side. The Process root's own output is its outcome types, of which the
-Tally declares none; the gifts' types, the processes and the enums over them
-are `tally-process/src/processes.rs`, written by hand until ethos-zero reads
-a Nexus's roots together.
+The ethos in `ethos/`: a Signal, a Memory, whose one change, an addition, is
+answered by what it came to, and a Process root. It is also the proof of concept
+of ethos-zero 31.1.0, which reads the three together: `tally-process/src/generated/`
+is its output for all of them, every path core or alloc, and `tally-process`
+builds with no_std unless the `datom` feature asks for the text side. The
+Process root's module holds each process's positions (`SumProcess`), what it
+takes (`SumTaken`), the enums over the processes and their traits; what is
+written by hand is the two bodies, `tally-process/src/lib.rs`.
 
 ```sh
-ethos-zero 'Generate.{ <clone>/ethos/signal.ethos <clone>/tally-process/src/generated }'
+ethos-zero 'Generate.{ [ <clone>/ethos/memory.ethos <clone>/ethos/process.ethos <clone>/ethos/signal.ethos ] <clone>/tally-process/src/generated }'
 ```
 
 High level, what a Nexus author writes, `tally-process/src/lib.rs`: a Sum,
-born of a call, gives one Addend process for each number; each Addend gives
-one Add to the memory and ends with the Addition it takes back; the Sum takes
-each Addend's end, and when the last has come gives Summed with the total. An
-Addend that overflows ends the Sum, and the Addends still living are unwound.
+born of a call, gives one Addend process for each number; each Addend, born of
+the Sum that gives it, gives one Add to the memory and ends with what it came to;
+the Sum takes each Addend's end, and when the last has come gives Summed with the
+total and ends. An Addend that overflows ends the Sum, and the Addends still living
+are unwound.
 
 Low level, the manager and its world, `tally-nexus/src/lib.rs`: one queue;
-the signal process takes each call and closes each connection; the memory
-process keeps the tally and makes one change at a time when nothing else
-waits; an end is given to the owner, and the memory lets go of what an ended
+the signal process takes each call and shuts each connection a close names; the
+memory process keeps the tally and makes one change at a time when nothing
+else waits; an end is given to the owner, and the memory lets go of what an ended
 process asked. The binary takes the steps as one datom and writes the whole
-trace as datom.
+trace as datom; a step `Settled` waits for the memory to make every change asked of it.
 
 ```sh
-tally-nexus '[ Called.Sum.[ 1 2 3 ] Called.Sum.[ 4 5 ] Closed.2 ]'
+tally-nexus '[ Called.{ { 100 1000 } Sum.[ 1 2 3 ] } Called.{ { 100 1000 } Sum.[ 4 5 ] } Closed.2 ]'
 ```
 
-The second sum's connection closes while its addends wait on the memory: its
-two Addends end Unwound, the last born first, then the Sum, and the memory
-lets go of their two Adds; the first sum answers `Summed.6`.
+The second sum's connection closes while its addends wait on the memory: nothing
+ends, the second sum lives to its outcome and gives `Summed.15` to a connection
+that is shut, where it is let go; the first sum answers `Summed.6`.
 
 ## Building
 

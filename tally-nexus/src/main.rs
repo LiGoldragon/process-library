@@ -1,5 +1,5 @@
-//! tally-nexus '<steps>': runs the steps, a vector of Called.<Input> and
-//! Closed.<Root>, and writes the trace as datom, one line for each birth,
+//! tally-nexus '<steps>': runs the steps, a vector of Called.{ Caller Input }
+//! and Closed.<Root>, and writes the trace as datom, one line for each birth,
 //! gift, taking and end.
 
 use std::process::ExitCode;
@@ -25,7 +25,7 @@ fn main() -> ExitCode {
         }
     };
     let moment = SystemTime::now().duration_since(UNIX_EPOCH).map(|since| since.as_nanos() as i64).unwrap_or(0);
-    for line in written(&run(steps, Moment(moment))) {
+    for line in written(&run(steps, Moment(moment)).trace) {
         println!("{line}");
     }
     ExitCode::SUCCESS

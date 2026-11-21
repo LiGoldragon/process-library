@@ -2,20 +2,40 @@
 //! which takes each call and closes each connection; the memory process, which
 //! keeps the tally and makes one change at a time; and the queue they share.
 //! Calls are taken first; the memory makes its next change only when nothing
-//! else waits, so a connection closed while its sum is adding shows the unwind.
+//! else waits, so a connection closed while its sum is adding shows what a close
+//! ends: nothing of a call's process, which lives until it yields its outcome;
+//! what it then gives its caller is let go.
 
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use datom_codec::{Composing, Datomizable};
-use process::{Arrival, Ended, Gave, Given, Identity, Living, Moment, Path, ProcessManager, Root, Roots, Trace, Traced, Tracing};
+use process::{Arrival, Caller, Ended, Gave, Given, Identity, Living, Moment, ProcessManager, Roots, Root, Trace, Traced, Tracing};
 use tally_process::*;
 
+/// A call: its input, and who made it.
+#[derive(Clone, Debug, PartialEq, Eq, Datomizable, Composing)]
+pub struct Call {
+    pub caller: Caller,
+    pub input: Input,
+}
+
 /// What reaches the Tally Nexus from outside: a call, or the closing of the
-/// connection of the call drawn under that root.
+/// connection of the call drawn under that root; and a wait, for the memory to
+/// have made every change asked of it before the next step comes, so that a
+/// connection can close after its answer.
 #[derive(Clone, Debug, PartialEq, Eq, Datomizable, Composing)]
 pub enum Step {
-    Called(Input),
+    Called(Call),
     Closed(Root),
+    Settled,
+}
+
+/// What a run came to: the whole trace, Started first, and each answer the
+/// signal process wrote back on a connection that was still open.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Run {
+    pub trace: Vec<Traced<Process>>,
+    pub answered: Vec<(Root, Gift)>,
 }
 
 struct World {
@@ -24,6 +44,9 @@ struct World {
     tally: Tally,
     roots: Roots,
     positions: BTreeMap<Identity, i64>,
+    closed: BTreeSet<Root>,
+    settling: bool,
+    answered: Vec<(Root, Gift)>,
     trace: Vec<Traced<Process>>,
 }
 
@@ -35,23 +58,30 @@ impl World {
             tally: Tally { total: Total(0), count: Count(0) },
             roots: Roots::default(),
             positions: BTreeMap::new(),
+            closed: BTreeSet::new(),
+            settling: false,
+            answered: Vec::new(),
             trace: Vec::new(),
         }
     }
 
     fn step(&mut self, step: Step) {
         match step {
-            Step::Called(Input::Sum(addend_vector)) => {
+            Step::Called(Call { caller, input: Input::Sum(integer_vector) }) => {
                 let identity = self.roots.draw();
-                self.queue.push_back(Arrival::Born(Living { identity, process: Process::Sum(SumProcess { addend_vector }) }));
+                self.queue.push_back(Arrival::Born(Living { identity, process: Process::Sum(SumProcess { caller, integer_vector }) }));
             }
+            // A close after the answer ends nothing, and so does a close before it: the call's
+            // process lives until it yields its outcome. The connection is shut, and what the
+            // process gives its caller from now on is let go.
             Step::Closed(root) => {
-                self.queue.push_back(Arrival::Ended(Ended { identity: Identity { root, path: Path(Vec::new()) }, outcome: Outcome::Unwound }));
+                self.closed.insert(root);
             }
+            Step::Settled => self.settling = true,
         }
     }
 
-    /// The memory process: one change, kept, and its answer given back.
+    /// The memory process: one change, kept, and what it came to given back.
     fn change(&mut self, identity: Identity, Add(addend): Add) {
         let addition = match self.tally.total.0.checked_add(addend) {
             Some(total) => {
@@ -60,7 +90,7 @@ impl World {
             }
             None => Addition::Overflowed,
         };
-        self.queue.push_back(Arrival::Given(Given { identity, taken: Taken::Addition(addition) }));
+        self.queue.push_back(Arrival::Given(Given { identity, taken: Taken::Addition(Ok(addition)) }));
     }
 
     /// A process given is born under its giver: the giver's Root, its Path and the next position.
@@ -75,8 +105,12 @@ impl World {
         match gift {
             Gift::Addend(addend) => self.bear(&identity, addend),
             Gift::Add(add) => self.changes.push_back((identity, add)),
-            // The signal process writes the answer back on the caller's connection.
-            Gift::Summed(_) | Gift::Overflowed => {}
+            // The signal process writes the answer back on the caller's connection, where it is still open.
+            Gift::Summed(_) | Gift::Overflowed => {
+                if !self.closed.contains(&identity.root) {
+                    self.answered.push((identity.root, gift));
+                }
+            }
         }
     }
 
@@ -85,8 +119,8 @@ impl World {
     fn ended(&mut self, Ended { identity, outcome }: Ended<Outcome>) {
         self.changes.retain(|(asked, _)| *asked != identity);
         self.positions.remove(&identity);
-        if let (Outcome::Addend(addition), Some(owner)) = (outcome, identity.owner()) {
-            self.queue.push_back(Arrival::Given(Given { identity: owner, taken: Taken::Addition(addition) }));
+        if let (Outcome::Addend(adding), Some(owner)) = (outcome, identity.owner()) {
+            self.queue.push_back(Arrival::Given(Given { identity: owner, taken: Taken::Adding(adding) }));
         }
     }
 }
@@ -102,8 +136,8 @@ impl Tracing<Process> for World {
     }
 }
 
-/// Runs the steps to their end and gives the whole trace, Started first.
-pub fn run(steps: Vec<Step>, moment: Moment) -> Vec<Traced<Process>> {
+/// Runs the steps to their end and gives what it came to.
+pub fn run(steps: Vec<Step>, moment: Moment) -> Run {
     let mut world = World::new();
     world.trace.push(Trace::Started(moment));
     let mut manager = ProcessManager::default();
@@ -111,6 +145,12 @@ pub fn run(steps: Vec<Step>, moment: Moment) -> Vec<Traced<Process>> {
     loop {
         if let Some(arrival) = world.queue.pop_front() {
             manager.arrive(arrival, &mut world);
+        } else if world.settling {
+            // Nothing else waits, so the memory makes its next change; the wait is over when it has none.
+            match world.changes.pop_front() {
+                Some((identity, add)) => world.change(identity, add),
+                None => world.settling = false,
+            }
         } else if let Some(step) = steps.next() {
             world.step(step);
         } else if let Some((identity, add)) = world.changes.pop_front() {
@@ -120,7 +160,7 @@ pub fn run(steps: Vec<Step>, moment: Moment) -> Vec<Traced<Process>> {
         }
     }
     manager.end_all(&mut world);
-    world.trace
+    Run { trace: world.trace, answered: world.answered }
 }
 
 /// One line of datom for each entry of the trace.

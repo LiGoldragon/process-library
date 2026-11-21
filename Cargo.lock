@@ -163,7 +163,7 @@ dependencies = [
 
 [[package]]
 name = "process-library"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "datom-codec",
  "rkyv",
@@ -296,7 +296,7 @@ dependencies = [
 
 [[package]]
 name = "tally-nexus"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "datom-codec",
  "process-library",
@@ -306,7 +306,7 @@ dependencies = [
 
 [[package]]
 name = "tally-process"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "datom-codec",
  "process-library",

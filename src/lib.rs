@@ -99,6 +99,49 @@ pub trait Unwindable {
     fn unwound() -> Self;
 }
 
+/// The process id of the peer of a connection, from its kernel credentials.
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ProcessId(pub i64);
+
+/// The user id of the peer of a connection, from its kernel credentials.
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct UserId(pub i64);
+
+/// Who called: every input reaches a Nexus with its Caller, and a process born of
+/// a call holds it.
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Caller {
+    pub process_id: ProcessId,
+    pub user_id: UserId,
+}
+
+/// What returns to a process for a record kept.
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum Answer {
+    Succeeded,
+    Failed,
+}
+
+/// What returns to a process for a change that was not made: its `Result` is its answer or this.
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Unremembered {}
+
+/// What returns to a process for an emission whose outcome was not observed:
+/// its `Result` is its outcome or this. Unsubmitted: no translator listened, nothing
+/// was done; Unanswered: the translator took it and the connection closed first, so
+/// the call may have been made.
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum Unobserved {
+    Unsubmitted,
+    Unanswered,
+}
+
 /// The two waiting sides of the library, outside the table: every root process
 /// is owned by one of them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
