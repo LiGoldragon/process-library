@@ -17,10 +17,19 @@ process = { package = "process-library", git = "https://github.com/LiGoldragon/p
 ## The Tally Nexus, its proof of concept
 
 The ethos in `ethos/`: a Signal, a Memory, the Library holding the change
-and its answer until the Memory page places them, and a Process root.
-ethos-zero checks the first three; it knows no Process root yet, so
-`tally-process/src/generated.rs` is written by hand as the generator would
-write it.
+and its answer until the Memory page places them, and a Process root. It is
+also the proof of concept of ethos-zero 31 (branch process-root, 48f155d),
+which checks all four: `tally-process/src/generated/` is its output for the
+Signal, the Memory and the Library, every path core or alloc, and
+`tally-process` builds with no_std unless the `datom` feature asks for the
+text side. The Process root's own output is its outcome types, of which the
+Tally declares none; the gifts' types, the processes and the enums over them
+are `tally-process/src/processes.rs`, written by hand until ethos-zero reads
+a Nexus's roots together.
+
+```sh
+ethos-zero 'Generate.{ <clone>/ethos/signal.ethos <clone>/tally-process/src/generated }'
+```
 
 High level, what a Nexus author writes, `tally-process/src/lib.rs`: a Sum,
 born of a call, gives one Addend process for each number; each Addend gives

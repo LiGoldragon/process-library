@@ -1,10 +1,13 @@
-//! What the generator would write from the Signal, Memory, Library and Process
-//! ethos of the Tally Nexus, in ethos/. Written by hand while ethos-zero knows
-//! no Process root; every path names core or alloc, so it builds with no_std.
+//! What the generator will write from the Process ethos of the Tally Nexus,
+//! once it reads a Nexus's roots together: the gifts' types, each process and
+//! what it takes, and the enums over them. Written by hand until then; every
+//! path names core or alloc, so it builds with no_std.
 
 use alloc::vec::Vec;
 
 use process::{Givable, Giving, Ownable, Owner, Processable, Unwindable};
+
+use crate::{Add, Addend, Addition, Total};
 
 macro_rules! generated {
     ($($item:item)*) => { $(
@@ -15,21 +18,9 @@ macro_rules! generated {
 }
 
 generated! {
-    // Signal
-    pub struct Addend(pub i64);
-    pub struct Total(pub i64);
-    pub enum Input { Sum(Vec<Addend>) }
+    // The outputs given, each a type of its own
     pub struct Summed(pub Total);
     pub struct Overflowed;
-    pub enum Output { Summed(Total), Overflowed }
-
-    // Library: the change and its answer, until the Memory page places them
-    pub struct Add(pub i64);
-    pub enum Addition { Added(Total), Overflowed }
-
-    // Memory
-    pub struct Count(pub i64);
-    pub struct Tally { pub total: Total, pub count: Count }
 
     // Process
     pub struct SumProcess { pub addend_vector: Vec<Addend> }
